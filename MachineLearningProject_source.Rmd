@@ -1,0 +1,131 @@
+---
+title: "Pracical Machine Learning Project - Human Activity Recognition"
+author: "Falko Schönteich"
+date: "Sunday, November 23, 2014"
+ActualVsPrediction_Frame: html_document
+---
+
+# Synopsis
+In this study three prediction models (tree based, bagging based and random forest based) for human activity recognition (HAR) are created. It analysis data collected from six male participants (aged between 20-28) doing unilateral dumbbell Biceps curl. The data is categorized into 5 classes (A: exactly accoding to the specification; B:throwing the elbows to the front; C: lifting the dumbbell only halfway; D: lowering the dumbbell only halfway; E: throwing the hips to the front)
+
+Data source: Velloso, E.; Bulling, A.; Gellersen, H.; Ugulino, W.; Fuks, H. Qualitative Activity Recognition of Weight Lifting Exercises. Proceedings of 4th International Conference in Cooperation with SIGCHI (Augmented Human '13) . Stuttgart, Germany: ACM SIGCHI, 2013.
+
+
+# Data Retrieval
+
+The data can be retrieved from the following URLs:
+
+```{r, cache=TRUE}
+trainurl<-"https://d396qusza40orc.cloudfront.net/predmachlearn/pml-training.csv"
+testurl<-"https://d396qusza40orc.cloudfront.net/predmachlearn/pml-testing.csv"
+```
+```{r,cache=TRUE}
+trainfile<-"pml-training.csv"
+testfile<-"pml-testing.csv"
+
+# Download files if not already done.
+#download.file(trainurl,trainfile)
+#download.file(testurl,testfile)
+```
+
+```{r,cache=TRUE}
+data_train<-read.csv(trainfile,na.string=c("NA",""))
+data_test<-read.csv(testfile,na.string=c("NA",""))
+```
+
+
+# Data Preprocessing
+Dividing the data in a training and a testing set.
+```{r, cache=TRUE,waring=FALSE}
+library(caret)
+set.seed(123)
+inTrain = createDataPartition(y=data_train$classe, p=0.7, list=FALSE)
+training = data_train[inTrain,]
+testing = data_train[-inTrain,]
+
+dim(training)
+table(training$classe)
+```
+
+Some of the columns have almost no data, so they can be left out.
+```{r,cache=TRUE}
+na_count = sapply(training, function(x) {sum(is.na(x))})
+table(na_count)
+
+empty_columns= names(na_count[na_count>=13440])
+training = training[, !names(training) %in% empty_columns]
+names(training)
+```
+
+The first 7 variables are only informational, so they can be ommitted as well.
+```{r,cache=TRUE}
+training = training[,-c(1:7)]
+```
+
+# Prediction models
+Three prediction models are created with different methods (tree based, bagging based, random forest based).
+
+### Tree based model
+```{r,cache=TRUE,message=FALSE}
+library(rpart)
+rpart_model <-train(classe ~ ., method="rpart",data = training)
+```
+
+### Bagging based model
+```{r,cache=TRUE,message=FALSE,warning=FALSE}
+library(ipred)
+bag_model <- bagging(classe ~ ., data = training, coob = T)
+```
+
+### Random forest based model
+```{r,cache=TRUE,message=FALSE,warning=FALSE}
+library(randomForest)
+rf_model <- randomForest(classe ~ ., data = training, importance = T)
+```
+
+#Evaluating the models
+First, a data frame for data comparison is created.
+```{r,cache=TRUE,warning=FALSE}
+ActualVsPrediction_Frame<-data.frame(ActualClass = testing$classe, PredictionTree = predict(rpart_model, testing), PredictionBagging = predict(bag_model, testing), PredictionRandomForest = predict(rf_model, testing))
+
+```
+
+## Correct predictions
+To determine the precision of the chosen models, the actual values are compared to the predictions.
+```{r, cache=TRUE}
+nrow(testing)
+sum(ActualVsPrediction_Frame$ActualClass==ActualVsPrediction_Frame$PredictionTree)
+sum(ActualVsPrediction_Frame$ActualClass==ActualVsPrediction_Frame$PredictionBagging)
+sum(ActualVsPrediction_Frame$ActualClass==ActualVsPrediction_Frame$PredictionRandomForest)
+```
+
+## Confusion marix
+To further analyse the accuracy of the prediction models, the confusion matrices are calculated.
+```{r,cache=TRUE}
+confusionMatrix(ActualVsPrediction_Frame$PredictionTree,ActualVsPrediction_Frame$ActualClass)
+confusionMatrix(ActualVsPrediction_Frame$PredictionBagging,ActualVsPrediction_Frame$ActualClass)
+confusionMatrix(ActualVsPrediction_Frame$PredictionRandomForest,ActualVsPrediction_Frame$ActualClass)
+```
+
+# Conclusion
+As the confusion matrix for the random forest model shows the lowest error rate (Accuracy for tree based:0.553
+; for bagging based: 0.9876; for random forest based: 0.9947), this model produces the best predictions.
+
+# Predicting assignement set
+With the random forest model, the assignment sets are predicted.
+```{r}
+answers <- predict(rf_model, data_test)
+
+pml_write_files = function(x){
+  n = length(x)
+  for(i in 1:n){
+    filename = paste0("problem_id_",i,".txt")
+    write.table(x[i],file=filename,quote=FALSE,row.names=FALSE,col.names=FALSE)
+  }
+}
+pml_write_files(answers)
+
+answers
+```
+
+All the predictions are correct.
