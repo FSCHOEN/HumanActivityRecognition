@@ -1,5 +1,5 @@
 ---
-title: "Pracical Machine Learning Project - Human Activity Recognition"
+title: "Practical Machine Learning Project - Human Activity Recognition"
 author: "Falko Schönteich"
 date: "Sunday, November 23, 2014"
 ActualVsPrediction_Frame: html_document
